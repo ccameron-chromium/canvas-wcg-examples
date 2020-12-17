@@ -1,0 +1,162 @@
+<html>
+<head>
+</head>
+<body>
+
+
+<!-- //////////////////////////// Introduction ///////////////////////////// -->
+<h1>2D Canvas Wide Color Gamut Example</h1>
+<p>
+In this page we demonstrate how to use a 2D canvas to display wide color gamut colors.
+</p>
+<h1>Enabling Support</h1>
+<p>
+In order to enable wide color gamut support on Chrome, download <a href="https://www.google.com/chrome/canary/">Chrome Canary</a>.
+Because this support is experimental, you will need to explicitly enable this.
+To do this, navigate to chrome://flags and enable "Experimental Web Platform features".
+</p>
+<p>
+Alternatively, this can be enabled at the command line with the following argument.
+</p>
+<pre>
+  $ /Applications/Google\ Chrome\ Canary.app/Contents/MacOS/Google\ Chrome\ Canary \
+      --enable-experimental-web-platform-features
+</pre>
+
+<!-- /////////////////////////// Image Example ///////////////////////////// -->
+<h1>An Example 8-Bit Rec. 2020 Canvas</h1>
+<p>
+To create a wide color gamut canvas, set the <tt>colorSpace</tt> key to the desired color space.
+The current list of color spaces supported is <tt>srgb</tt>, <tt>display-p3</tt>, and <tt>rec2020</tt>.
+The following code will create an 8-bit canvas with the <a href="https://en.wikipedia.org/wiki/Rec._2020">Rec. 2020</a> color space.
+</p>
+<pre>
+  ctx = document.getElementById('myRec2020Canvas').getContext('2d', {colorSpace:'rec2020'});
+</pre>
+<p>
+We can see if this has succeeded by querying the <tt>colorSpace</tt> member of the context attributes.
+</p>
+<pre>
+  var attributes = ctx.getContextAttributes();
+  var succeeded = 'colorSpace' in attributes &amp;&amp;
+                  'rec2020' == attributes.colorSpace;
+</pre>
+<p>
+The only ways to get wide color gamut content on the screen is from images and from ImageData.
+External images are automatically displayed in their full wide color gamut.
+In the below example, we draw <a href="https://webkit.org/blog-files/color-gamut/Webkit-logo-P3.png">this image</a> at the top of the canvas.
+If displayed using wide color gamut, the image shows the WebKit logo. Otherwise, no logo is visible.
+</p>
+<pre>
+  var image = new Image();
+  image.onload = function() { ctx.drawImage(image, 0, 0, 256, 256); }
+  image.src = "https://webkit.org/blog-files/color-gamut/Webkit-logo-P3.png";
+</pre>
+<p>
+The below canvas is the result of the above code.
+</p>
+<p> <canvas id='myRec2020Canvas' width='256' height='256'></canvas> </p>
+<script>
+  var ctx = document.getElementById('myRec2020Canvas').getContext(
+      '2d', {colorSpace: 'rec2020'});
+  var attributes = ctx.getContextAttributes();
+  var hasColorSpaceSupport = 'colorSpace' in attributes &&
+                             'rec2020' == attributes.colorSpace;
+  var image = new Image();
+  image.onload = function() {
+    ctx.drawImage(image, 0, 0, 256, 256);
+    if (!hasColorSpaceSupport) {
+      ctx.font = '16px Arial';
+      ctx.fillStyle = 'black';
+      ctx.fillText('No WCG 2D canvas support!', 8, 24);
+      ctx.fillText('Did you use the specified flags?', 8, 48);
+    }
+  }
+  image.src = "https://webkit.org/blog-files/color-gamut/Webkit-logo-P3.png";
+</script>
+
+
+<!-- ///////////////////////// ImageData Example /////////////////////////// -->
+<h1>Using ImageData</h1>
+<p>
+As mentioned earlier, the other way to get wide color gamut content on a canvas is by using ImageData.
+Similarly to <tt>getContext</tt>, the <tt>createImageData</tt> function now accepts a settings argument in which a color space may be specified.
+</p>
+<pre>
+  var imageDataSrgb = ctx.createImageData(32, 32, {colorSpace:'srgb'});
+  var imageDataRec2020 = ctx.createImageData(32, 32, {colorSpace:'rec2020'});
+</pre>
+<p>
+When we draw these to the canvas using <tt>putImageData</tt>, they will be converted appropriately.
+This code sets both ImageDatas to be the maximum red-ness that they can express.
+</p>
+<pre>
+  for (i = 0; i < imageData.data.length; i += 4) {
+    imageDataSrgb.data[i+0]    = imageDataSrgb.data[i+3]    = 255;
+    imageDataRec2020.data[i+0] = imageDataRec2020.data[i+3] = 255;
+  }
+  ctx.putImageData(imageDataSrgb, 0, 0);
+  ctx.putImageData(imageDataRec2020, 32, 0);
+</pre>
+<p>
+The below canvas is the result of the above code.
+</p>
+<p> <canvas id='myImageDataCanvas' width='64' height='32'></canvas> </p>
+<script>
+  var ctxForImageData = document.getElementById('myImageDataCanvas').getContext(
+      '2d', {colorSpace: 'rec2020'});
+  var imageDataSrgb = ctx.createImageData(32, 32, {colorSpace:'srgb'});
+  var imageDataRec2020 = ctx.createImageData(32, 32, {colorSpace:'rec2020'});
+  for (i = 0; i < imageDataSrgb.data.length; i += 4) {
+    imageDataSrgb.data[i+0]    = imageDataSrgb.data[i+3]    = 255;
+    imageDataRec2020.data[i+0] = imageDataRec2020.data[i+3] = 255;
+  }
+  ctxForImageData.putImageData(imageDataSrgb, 0, 0);
+  ctxForImageData.putImageData(imageDataRec2020, 32, 0);
+</script>
+
+<!-- ///////////////////////// High Bit Example //////////////////////////// -->
+<h1>High Bit Depth Canvases and ImageData</h1>
+<p>
+The data in a canvas or an ImageData is no longer restricted to being 8 bits.
+For canvas, the options are <tt>uint8</tt> and <tt>float16</tt>.
+For ImageData, the options are <tt>uint8</tt>, <tt>uint16</tt>, and <tt>float32</tt>.
+</p>
+<p>
+The following code will create a 16-bit floating-point backed canvas and color it sRGB-red.
+</p>
+<pre>
+  ctx = document.getElementById('myHalfFloatCanvas').getContext(
+      '2d', {colorSpace:'srgb', pixelFormat:'float16'});
+  ctx.fillStyle = 'red';
+  ctx.fillRect(0, 0, 96, 96);
+</pre>
+<p>
+The following code will create a 32-bit floating-point Rec. 2020 ImageData.
+</p>
+<pre>
+  var imageDataFloat32 = ctx.createImageData(32, 32, {colorSpace:'rec2020', storageFormat:'float32'});
+  for (i = 0; i < imageDataFloat32.data.length; i += 4) {
+    imageDataFloat32.data[i+0] = imageDataFloat32.data[i+3] = 1.0;
+  }
+  ctxForImageData.putImageData(imageDataFloat32, 16, 16);
+</pre>
+<p>
+The below canvas is the result of the above code.
+Note that despite the fact that the <tt>colorSpace</tt> of the canvas is <tt>srgb</tt>, we are able to display the input color, up to the fidelity of the monitor.
+This is because canvas values outside of the range of [0, 1] are not clamped.
+</p>
+<p> <canvas id='myHighBitDepthCanvas' width='96' height='96'></canvas> </p>
+<script>
+  var ctxForHighBitDepth= document.getElementById('myHighBitDepthCanvas').getContext(
+      '2d', {colorSpace: 'srgb', pixelFormat:'float16'});
+  ctxForHighBitDepth.fillStyle = 'red';
+  ctxForHighBitDepth.fillRect(0, 0, 96, 96);
+  var imageDataFloat32 = ctx.createImageData(64, 64, {colorSpace:'rec2020', storageFormat:'float32'});
+  for (i = 0; i < imageDataFloat32.data.length; i += 4) {
+    imageDataFloat32.data[i+0] = imageDataFloat32.data[i+3] = 1.0;
+  }
+  ctxForHighBitDepth.putImageData(imageDataFloat32, 16, 16);
+</script>
+
+</html>
