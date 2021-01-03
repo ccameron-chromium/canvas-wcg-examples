@@ -1,5 +1,13 @@
 <html>
 <head>
+<script>
+function PrintCanvasError(ctx) {
+  ctx.font = '16px Arial';
+  ctx.fillStyle = 'black';
+  ctx.fillText('No WCG 2D canvas support!', 8, 24);
+  ctx.fillText('Did you use the specified flags?', 8, 48);
+}
+</script>
 </head>
 <body>
 
@@ -65,12 +73,8 @@ The below canvas is the result of the above code.
   var image = new Image();
   image.onload = function() {
     ctx.drawImage(image, 0, 0, 256, 256);
-    if (!hasColorSpaceSupport) {
-      ctx.font = '16px Arial';
-      ctx.fillStyle = 'black';
-      ctx.fillText('No WCG 2D canvas support!', 8, 24);
-      ctx.fillText('Did you use the specified flags?', 8, 48);
-    }
+    if (!hasColorSpaceSupport)
+      PrintCanvasError(ctx);
   }
   image.src = "https://webkit.org/blog-files/color-gamut/Webkit-logo-P3.png";
 </script>
@@ -80,11 +84,11 @@ The below canvas is the result of the above code.
 <h1>Using ImageData</h1>
 <p>
 As mentioned earlier, the other way to get wide color gamut content on a canvas is by using ImageData.
-Similarly to <tt>getContext</tt>, the <tt>createImageData</tt> function now accepts a settings argument in which a color space may be specified.
+Similarly to <tt>getContext</tt>, the ImageData constructors and the functions <tt>createImageData</tt> and <tt>getImageData</tt> now accepts a settings argument in which a color space may be specified.
 </p>
 <pre>
-  var imageDataSrgb = ctx.createImageData(32, 32, {colorSpace:'srgb'});
-  var imageDataRec2020 = ctx.createImageData(32, 32, {colorSpace:'rec2020'});
+  var imageDataSrgb = new ImageData(32, 32, {colorSpace:'srgb'});
+  var imageDataRec2020 = new ImageData(32, 32, {colorSpace:'rec2020'});
 </pre>
 <p>
 When we draw these to the canvas using <tt>putImageData</tt>, they will be converted appropriately.
@@ -105,14 +109,18 @@ The below canvas is the result of the above code.
 <script>
   var ctxForImageData = document.getElementById('myImageDataCanvas').getContext(
       '2d', {colorSpace: 'rec2020'});
-  var imageDataSrgb = ctx.createImageData(32, 32, {colorSpace:'srgb'});
-  var imageDataRec2020 = ctx.createImageData(32, 32, {colorSpace:'rec2020'});
-  for (i = 0; i < imageDataSrgb.data.length; i += 4) {
-    imageDataSrgb.data[i+0]    = imageDataSrgb.data[i+3]    = 255;
-    imageDataRec2020.data[i+0] = imageDataRec2020.data[i+3] = 255;
+  if (!hasColorSpaceSupport) {
+    PrintCanvasError(ctxForImageData);
+  } else {
+    var imageDataSrgb =  new ImageData(32, 32, {colorSpace:'srgb'});
+    var imageDataRec2020 = new ImageData(32, 32, {colorSpace:'rec2020'});
+    for (i = 0; i < imageDataSrgb.data.length; i += 4) {
+      imageDataSrgb.data[i+0]    = imageDataSrgb.data[i+3]    = 255;
+      imageDataRec2020.data[i+0] = imageDataRec2020.data[i+3] = 255;
+    }
+    ctxForImageData.putImageData(imageDataSrgb, 0, 0);
+    ctxForImageData.putImageData(imageDataRec2020, 32, 0);
   }
-  ctxForImageData.putImageData(imageDataSrgb, 0, 0);
-  ctxForImageData.putImageData(imageDataRec2020, 32, 0);
 </script>
 
 <!-- ///////////////////////// High Bit Example //////////////////////////// -->
@@ -132,14 +140,15 @@ The following code will create a 16-bit floating-point backed canvas and color i
   ctx.fillRect(0, 0, 96, 96);
 </pre>
 <p>
-The following code will create a 32-bit floating-point Rec. 2020 ImageData.
+The following code will create a 16-bit unsigned integer Rec. 2020 ImageData from a pre-existing Uint16Array.
 </p>
 <pre>
-  var imageDataFloat32 = ctx.createImageData(32, 32, {colorSpace:'rec2020', storageFormat:'float32'});
-  for (i = 0; i < imageDataFloat32.data.length; i += 4) {
-    imageDataFloat32.data[i+0] = imageDataFloat32.data[i+3] = 1.0;
-  }
-  ctxForImageData.putImageData(imageDataFloat32, 16, 16);
+  var data = new Uint16Array(4*64*64);
+  for (i = 0; i < data.length; i += 4)
+    data[i+0] = data[i+3] = 65535;
+  var imageData = new ImageData(
+      data, 64, 64, {colorSpace:'rec2020', storageFormat:'uint16'});
+  ctx.putImageData(imageData, 16, 16);
 </pre>
 <p>
 The below canvas is the result of the above code.
@@ -148,15 +157,23 @@ This is because canvas values outside of the range of [0, 1] are not clamped.
 </p>
 <p> <canvas id='myHighBitDepthCanvas' width='96' height='96'></canvas> </p>
 <script>
+  // Part 1: Creating the high-bit-depth canvas.
   var ctxForHighBitDepth= document.getElementById('myHighBitDepthCanvas').getContext(
       '2d', {colorSpace: 'srgb', pixelFormat:'float16'});
   ctxForHighBitDepth.fillStyle = 'red';
   ctxForHighBitDepth.fillRect(0, 0, 96, 96);
-  var imageDataFloat32 = ctx.createImageData(64, 64, {colorSpace:'rec2020', storageFormat:'float32'});
-  for (i = 0; i < imageDataFloat32.data.length; i += 4) {
-    imageDataFloat32.data[i+0] = imageDataFloat32.data[i+3] = 1.0;
+
+  // Part 2: Drawing rec2020 data.
+  if (!hasColorSpaceSupport) {
+    PrintCanvasError(ctxForHighBitDepth);
+  } else {
+    var data = new Uint16Array(4*64*64);
+    for (i = 0; i < data.length; i += 4)
+      data[i+0] = data[i+3] = 65535;
+    var imageData = new ImageData(
+        data, 64, 64, {colorSpace:'rec2020', storageFormat:'uint16'});
+    ctxForHighBitDepth.putImageData(imageData, 16, 16);
   }
-  ctxForHighBitDepth.putImageData(imageDataFloat32, 16, 16);
 </script>
 
 </html>
